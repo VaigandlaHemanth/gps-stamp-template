@@ -38,9 +38,9 @@ Four sources:
   you type. Works with no setup.
 - **Google Maps** — needs your own Maps Static API key (see below). The only source that
   returns genuine Google cartography.
-- **Screen grab** — open Maps, click grab, pick the tab, crop the square in-app. The
+- **Your own screenshot** — drag, click, or Ctrl+V a screenshot of the map.
   browser always shows its own picker; a page can never read another site silently.
-- **Your own image** — drag, click or Ctrl+V a screenshot.
+- **Your own image** — drag, click or Ctrl+V a screenshot of the map.
 
 ### Using a Google Maps key
 

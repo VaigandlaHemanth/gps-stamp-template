@@ -162,11 +162,7 @@
          style="display:block;text-align:center;text-decoration:none;margin-top:10px;
                 padding:8px 11px;font-size:12px;border:1px solid var(--line);
                 border-radius:8px;color:var(--ink)">Open Google Maps at these coordinates ↗</a>
-      <button id="grabBtn" style="width:100%;margin-top:8px;padding:9px 11px;font-size:12.5px">
-        📷 Grab it off the screen</button>
-      <p class="note">Open Maps, then hit <b>Grab</b> and pick that tab — you crop the
-        square right here, no saving a file. The browser always asks which surface to
-        share; a page is never allowed to read another site silently.</p>
+      <p class="note">Open it, screenshot the map square, then paste here with Ctrl+V.</p>
     </div>
 
     <div class="chk"><input type="checkbox" id="showPin" checked><label for="showPin">Draw the red pin on top</label></div>
@@ -235,19 +231,6 @@
   <div id="fsTools" hidden></div>
 </section>
 
-<div id="capModal" hidden style="position:fixed;inset:0;z-index:50;background:rgba(6,8,11,.93);
-     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px">
-  <div style="font-size:13px;color:var(--muted);text-align:center;max-width:640px">
-    Drag the square over the map. Drag a corner to resize it — it stays square, because
-    the stamp's thumbnail is square.
-  </div>
-  <canvas id="capCv" style="max-width:96vw;max-height:74vh;border-radius:8px;
-          touch-action:none;cursor:move;background:#000"></canvas>
-  <div class="bar">
-    <button id="capUse">Use this square</button>
-    <button class="ghost" id="capCancel">Cancel</button>
-  </div>
-</div>
 </main>
 
 <script>
@@ -346,177 +329,7 @@ window.addEventListener('paste', e => {
     }
   }
 });
-/* ---------- grab the map off the screen ----------
-   A page can never read another origin's pixels on its own. getDisplayMedia is the
-   sanctioned path: the browser shows its own picker, the user chooses what to share,
-   and only then do we get frames. Streams captured this way don't taint the canvas,
-   so Download keeps working.                                                        */
-const CAP = { src: null, sel: null, view: null, drag: null };
-async function grabScreen() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-    $('osmStatus').textContent = 'This browser has no screen capture — use Ctrl+V instead.';
-    return;
-  }
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { displaySurface: 'browser' }, audio: false, preferCurrentTab: false });
-  } catch (e) { return; }                       // user dismissed the picker
-  // The video has to be in the document and actually painting, otherwise the first
-  // frames are blank — a fixed delay is not enough, since a backgrounded tab throttles
-  // timers. Wait for real frames, then verify the grab isn't blank before showing it.
-  const v = document.createElement('video');
-  v.muted = true; v.playsInline = true; v.autoplay = true;
-  v.style.cssText = 'position:fixed;left:-10000px;top:0;width:4px;height:4px;opacity:0';
-  document.body.appendChild(v);
-  v.srcObject = stream;
-  const cleanup = () => { stream.getTracks().forEach(t => t.stop()); v.remove(); };
-  $('osmStatus').textContent = 'Capturing…';
-  try {
-    await new Promise(res => {
-      if (v.readyState >= 2) return res();
-      v.onloadeddata = res; v.onloadedmetadata = res; setTimeout(res, 4000);
-    });
-    try { await v.play(); } catch (e) {}
-    await nextFrames(v, 3);
-    const c = document.createElement('canvas');
-    c.width = v.videoWidth || 1280; c.height = v.videoHeight || 720;
-    const g = c.getContext('2d', { willReadFrequently: true });
-    let ok = false;
-    for (let attempt = 0; attempt < 12; attempt++) {
-      g.drawImage(v, 0, 0, c.width, c.height);
-      if (!isBlank(g, c.width, c.height)) { ok = true; break; }
-      await nextFrames(v, 2);
-    }
-    cleanup();
-    if (!ok) {
-      $('osmStatus').textContent = 'That grab came back blank — pick the Maps tab (not '
-        + '“This tab”) in the share dialog, keep it visible, and try again. Ctrl+V also works.';
-      return;
-    }
-    $('osmStatus').textContent = 'Captured — crop the square.';
-    openCropper(c);
-  } catch (e) {
-    cleanup();
-    $('osmStatus').textContent = 'Screen capture failed — use Ctrl+V instead.';
-  }
-}
-// resolve after n painted frames, falling back to timers where rVFC is unavailable
-function nextFrames(v, n) {
-  return new Promise(res => {
-    let left = n, done = false;
-    const fin = () => { if (!done) { done = true; res(); } };
-    const step = () => {
-      if (--left <= 0) return fin();
-      if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(step);
-      else requestAnimationFrame(step);
-    };
-    if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(step);
-    else requestAnimationFrame(step);
-    setTimeout(fin, 2500);
-  });
-}
-function isBlank(g, w, h) {
-  const pts = [[w * .5, h * .5], [w * .25, h * .3], [w * .75, h * .3],
-               [w * .25, h * .7], [w * .75, h * .7], [w * .5, h * .15]];
-  for (const [x, y] of pts) {
-    const d = g.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
-    if (d[0] > 12 || d[1] > 12 || d[2] > 12) return false;
-  }
-  return true;
-}
-function openCropper(srcCanvas) {
-  CAP.src = srcCanvas;
-  const s = Math.round(Math.min(srcCanvas.width, srcCanvas.height) * 0.5);
-  CAP.sel = { x: Math.round((srcCanvas.width - s) / 2),
-              y: Math.round((srcCanvas.height - s) / 2), s };
-  $('capModal').hidden = false;
-  const cc = $('capCv');
-  const maxW = Math.min(window.innerWidth * 0.96, 1100);
-  const maxH = window.innerHeight * 0.74;
-  const k = Math.min(maxW / srcCanvas.width, maxH / srcCanvas.height, 1);
-  cc.width = Math.round(srcCanvas.width * k);
-  cc.height = Math.round(srcCanvas.height * k);
-  CAP.view = k;
-  paintCropper();
-}
-function paintCropper() {
-  const cc = $('capCv'), g = cc.getContext('2d'), k = CAP.view, S = CAP.sel;
-  g.clearRect(0, 0, cc.width, cc.height);
-  g.drawImage(CAP.src, 0, 0, cc.width, cc.height);
-  g.fillStyle = 'rgba(0,0,0,.55)';
-  const x = S.x * k, y = S.y * k, s = S.s * k;
-  g.fillRect(0, 0, cc.width, y);
-  g.fillRect(0, y + s, cc.width, cc.height - y - s);
-  g.fillRect(0, y, x, s);
-  g.fillRect(x + s, y, cc.width - x - s, s);
-  g.strokeStyle = '#5b9dff'; g.lineWidth = 2; g.strokeRect(x, y, s, s);
-  g.fillStyle = '#fff';
-  [[x, y], [x + s, y], [x, y + s], [x + s, y + s]].forEach(([hx, hy]) => {
-    g.beginPath(); g.arc(hx, hy, 7, 0, 7); g.fill();
-    g.strokeStyle = '#2f6fd0'; g.lineWidth = 2.5; g.stroke();
-  });
-}
-(() => {
-  const cc = $('capCv');
-  const pos = e => { const r = cc.getBoundingClientRect();
-    return { x: (e.clientX - r.left) / CAP.view * (cc.width / r.width),
-             y: (e.clientY - r.top) / CAP.view * (cc.height / r.height) }; };
-  cc.addEventListener('pointerdown', e => {
-    if (!CAP.sel) return;
-    e.preventDefault();
-    try { cc.setPointerCapture(e.pointerId); } catch (err) {}
-    const p = pos(e), S = CAP.sel, tol = 22 / CAP.view;
-    const corner = [['tl', S.x, S.y], ['tr', S.x + S.s, S.y],
-                    ['bl', S.x, S.y + S.s], ['br', S.x + S.s, S.y + S.s]]
-      .find(([, cx, cy]) => Math.abs(p.x - cx) < tol && Math.abs(p.y - cy) < tol);
-    CAP.drag = corner ? { mode: corner[0], p, S: { ...S } } : { mode: 'move', p, S: { ...S } };
-  });
-  cc.addEventListener('pointermove', e => {
-    if (!CAP.drag) return;
-    const p = pos(e), d = CAP.drag, W = CAP.src.width, H = CAP.src.height;
-    const dx = p.x - d.p.x, dy = p.y - d.p.y;
-    if (d.mode === 'move') {
-      CAP.sel.x = Math.max(0, Math.min(W - d.S.s, d.S.x + dx));
-      CAP.sel.y = Math.max(0, Math.min(H - d.S.s, d.S.y + dy));
-    } else {
-      // keep it square: one delta drives the side length
-      const grow = (d.mode === 'br') ? Math.max(dx, dy)
-                 : (d.mode === 'tl') ? Math.max(-dx, -dy)
-                 : (d.mode === 'tr') ? Math.max(dx, -dy) : Math.max(-dx, dy);
-      let s = Math.max(40, d.S.s + grow);
-      let x = (d.mode === 'tl' || d.mode === 'bl') ? d.S.x + (d.S.s - s) : d.S.x;
-      let y = (d.mode === 'tl' || d.mode === 'tr') ? d.S.y + (d.S.s - s) : d.S.y;
-      s = Math.min(s, W, H);
-      x = Math.max(0, Math.min(W - s, x));
-      y = Math.max(0, Math.min(H - s, y));
-      CAP.sel = { x, y, s };
-    }
-    paintCropper();
-  });
-  const stop = () => { CAP.drag = null; };
-  cc.addEventListener('pointerup', stop);
-  cc.addEventListener('pointercancel', stop);
-})();
-$('capUse').onclick = () => {
-  const S = CAP.sel, out = document.createElement('canvas');
-  out.width = out.height = Math.round(S.s);
-  out.getContext('2d').drawImage(CAP.src, S.x, S.y, S.s, S.s, 0, 0, out.width, out.height);
-  mapImg = out;
-  $('mapInfo').textContent = 'grabbed from screen (' + out.width + 'px)';
-  $('mapSrc').value = 'img'; syncMapUI();
-  $('capModal').hidden = true; CAP.src = null;
-  draw();
-};
-const closeCropper = () => { $('capModal').hidden = true; CAP.src = null; CAP.drag = null; };
-$('capCancel').onclick = closeCropper;
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && !$('capModal').hidden) closeCropper();
-});
-$('capModal').addEventListener('pointerdown', e => {      // click the backdrop to dismiss
-  if (e.target === $('capModal')) closeCropper();
-});
-$('grabBtn').onclick = grabScreen;
+
 
 function syncMapUI() {
   const v = $('mapSrc').value;
