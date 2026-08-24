@@ -180,7 +180,7 @@
       <label>Box width <span class="val" id="vBoxW">100%</span></label>
       <input type="range" id="boxWpct" min="45" max="130" value="100">
       <label>Box height <span class="val" id="vBoxH">100%</span></label>
-      <input type="range" id="boxHpct" min="60" max="220" value="100">
+      <input type="range" id="boxHpct" min="100" max="220" value="100">
     </div></div>
     <p class="note"><b>Stamp size</b> scales everything together — box, text and map.
       It stops growing once the panel reaches the edges of the photo, which on a
@@ -668,7 +668,12 @@ function draw() {
   let kNat = W;
   if (kNat * hFrac0 > H * 0.55) kNat = H * 0.55 / hFrac0;
   let k = kNat * sPct;
-  if (k * hFrac > H * 0.92) k = H * 0.92 / hFrac;
+  // Hard cap on height: the panel plus its bottom margin has to fit the photo. Solving
+  // k*hFrac + 2*marginBottom*k <= H keeps the CONTENT inside, which the old 0.92 cap
+  // did not — it clipped the panel while the text kept its full size, so the text
+  // spilled out of the top and bottom of the box.
+  const kTallMax = H / (hFrac + 2 * M.marginBottom);
+  if (k > kTallMax) k = kTallMax;
   // and keep it inside the image horizontally — the original stamp is already almost
   // full width, so on a normal photo this is what stops "bigger" from running off
   const kWideMax = W / (M.marginX + (1 - 2 * M.marginX) * wPct);
@@ -679,8 +684,9 @@ function draw() {
   const fTitle = P.fTitle, fBody = P.fBody;
 
   const natH = k * hFrac;              // height the content actually needs
-  const boxH = Math.min(natH * hPct,   // 100% == the original
-                        H - 2 * M.marginBottom * k);   // never taller than the photo
+  // Never shorter than the content: a box smaller than its text gave a negative vPad,
+  // which pushed the first line above the panel and the last line below it.
+  const boxH = Math.max(natH, Math.min(natH * hPct, H - 2 * M.marginBottom * k));
   const vPad = (boxH - natH) / 2;      // extra height becomes padding around the text
   const boxW = k * (1 - 2 * M.marginX) * wPct;
   const pos  = $('stampPos').value;
@@ -872,7 +878,7 @@ function placeHandles() {
     const p = toImg(e), b = drag.box;
     if (drag.h.kind === 'height') {
       const nat = b.boxH / (drag.hgt / 100);          // height at 100%
-      setSlider('boxHpct', 'vBoxH', (b.boxY + b.boxH - p.y) / nat * 100, 60, 220);
+      setSlider('boxHpct', 'vBoxH', (b.boxY + b.boxH - p.y) / nat * 100, 100, 220);
     } else if (drag.h.kind === 'width') {
       const full = b.boxW / (drag.w / 100);           // width at 100%
       setSlider('boxWpct', 'vBoxW', (p.x - b.boxX) / full * 100, 45, 130);
