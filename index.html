@@ -358,15 +358,68 @@ async function grabScreen() {
     stream = await navigator.mediaDevices.getDisplayMedia({
       video: { displaySurface: 'browser' }, audio: false, preferCurrentTab: false });
   } catch (e) { return; }                       // user dismissed the picker
+  // The video has to be in the document and actually painting, otherwise the first
+  // frames are blank — a fixed delay is not enough, since a backgrounded tab throttles
+  // timers. Wait for real frames, then verify the grab isn't blank before showing it.
   const v = document.createElement('video');
-  v.srcObject = stream; v.muted = true; v.playsInline = true;
-  try { await v.play(); } catch (e) {}
-  await new Promise(r => setTimeout(r, 350));   // let a real frame arrive
-  const c = document.createElement('canvas');
-  c.width = v.videoWidth || 1280; c.height = v.videoHeight || 720;
-  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-  stream.getTracks().forEach(t => t.stop());
-  openCropper(c);
+  v.muted = true; v.playsInline = true; v.autoplay = true;
+  v.style.cssText = 'position:fixed;left:-10000px;top:0;width:4px;height:4px;opacity:0';
+  document.body.appendChild(v);
+  v.srcObject = stream;
+  const cleanup = () => { stream.getTracks().forEach(t => t.stop()); v.remove(); };
+  $('osmStatus').textContent = 'Capturing…';
+  try {
+    await new Promise(res => {
+      if (v.readyState >= 2) return res();
+      v.onloadeddata = res; v.onloadedmetadata = res; setTimeout(res, 4000);
+    });
+    try { await v.play(); } catch (e) {}
+    await nextFrames(v, 3);
+    const c = document.createElement('canvas');
+    c.width = v.videoWidth || 1280; c.height = v.videoHeight || 720;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    let ok = false;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      g.drawImage(v, 0, 0, c.width, c.height);
+      if (!isBlank(g, c.width, c.height)) { ok = true; break; }
+      await nextFrames(v, 2);
+    }
+    cleanup();
+    if (!ok) {
+      $('osmStatus').textContent = 'That grab came back blank — pick the Maps tab (not '
+        + '“This tab”) in the share dialog, keep it visible, and try again. Ctrl+V also works.';
+      return;
+    }
+    $('osmStatus').textContent = 'Captured — crop the square.';
+    openCropper(c);
+  } catch (e) {
+    cleanup();
+    $('osmStatus').textContent = 'Screen capture failed — use Ctrl+V instead.';
+  }
+}
+// resolve after n painted frames, falling back to timers where rVFC is unavailable
+function nextFrames(v, n) {
+  return new Promise(res => {
+    let left = n, done = false;
+    const fin = () => { if (!done) { done = true; res(); } };
+    const step = () => {
+      if (--left <= 0) return fin();
+      if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(step);
+      else requestAnimationFrame(step);
+    };
+    if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(step);
+    else requestAnimationFrame(step);
+    setTimeout(fin, 2500);
+  });
+}
+function isBlank(g, w, h) {
+  const pts = [[w * .5, h * .5], [w * .25, h * .3], [w * .75, h * .3],
+               [w * .25, h * .7], [w * .75, h * .7], [w * .5, h * .15]];
+  for (const [x, y] of pts) {
+    const d = g.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+    if (d[0] > 12 || d[1] > 12 || d[2] > 12) return false;
+  }
+  return true;
 }
 function openCropper(srcCanvas) {
   CAP.src = srcCanvas;
@@ -451,7 +504,14 @@ $('capUse').onclick = () => {
   $('capModal').hidden = true; CAP.src = null;
   draw();
 };
-$('capCancel').onclick = () => { $('capModal').hidden = true; CAP.src = null; };
+const closeCropper = () => { $('capModal').hidden = true; CAP.src = null; CAP.drag = null; };
+$('capCancel').onclick = closeCropper;
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('capModal').hidden) closeCropper();
+});
+$('capModal').addEventListener('pointerdown', e => {      // click the backdrop to dismiss
+  if (e.target === $('capModal')) closeCropper();
+});
 $('grabBtn').onclick = grabScreen;
 
 function syncMapUI() {
