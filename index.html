@@ -658,11 +658,19 @@ function draw() {
 
   let P = unit(W);
   const titleLines = wrap($('title').value, P.wrapW, P.fTitle, P.tLS);
-  // the coordinate line carries a marker: the original's separator bar is only
-  // cap height, whereas Inter's "|" glyph overshoots it, so we draw the bar ourselves
+  // The coordinate line carries a marker: the original's separator bar is only cap
+  // height, whereas Inter's "|" glyph overshoots it, so we draw the bar ourselves.
+  // If it cannot fit on one line (big text, narrow box) it splits onto two rather
+  // than being shrunk, which used to leave it visibly smaller than its neighbours.
+  // Decided here, at the probe unit, and the ratio is scale-invariant so it is stable.
+  const cPre = 'Lat: ' + $('lat').value + ' ', cPost = ' Long: ' + $('lng').value;
+  setFace(P.fBody, P.bLS);
+  const coordLines = ctx.measureText(cPre + '|' + cPost).width <= P.wrapW
+    ? [{ coord: [cPre, cPost] }]
+    : ['Lat: ' + $('lat').value, 'Long: ' + $('lng').value];
   const bodyLines = wrap($('address').value, P.wrapW, P.fBody, P.bLS, 2)
-    .concat([{ coord: ['Lat: ' + $('lat').value + ' ', ' Long: ' + $('lng').value] },
-             stampDate()])
+    .concat(coordLines)
+    .concat(wrap(stampDate(), P.wrapW, P.fBody, P.bLS, 2))
     .filter(s => s !== '');
   const nT = Math.max(titleLines.length, 1), nB = bodyLines.length;
 
@@ -776,29 +784,32 @@ function draw() {
     const w = ctx.measureText(txt).width;
     return w > P.wrapW ? P.wrapW / w : 1;
   };
+  // One shrink factor for the whole title block, one for the whole body block.
+  // Scaling each line separately made the un-wrappable Lat/Long line visibly smaller
+  // than its neighbours; a shared factor keeps each block reading as a single size.
+  // At normal settings nothing overflows, both factors are 1, and this is a no-op.
+  const titleScale = titleLines.reduce((m, l) => Math.min(m, fitTitle(l)), 1);
+  const fTitle2 = titleScale < 1
+    ? TITLE_WEIGHT + ' ' + (tSz * titleScale) + 'px ' + FF : fTitle;
   titleLines.forEach((l, i) => {
-    const sc = fitTitle(l);
-    put(l, sc < 1 ? TITLE_WEIGHT + ' ' + (tSz * sc) + 'px ' + FF : fTitle, tLS * sc);
+    put(l, fTitle2, tLS * titleScale);
     if (i < nT - 1) baseline += tLH;
   });
   baseline += M.titleToBody * k * fs;
-  // The coordinate and date lines never wrap, so if the box has been narrowed they
-  // would run past its edge — shrink just those lines enough to fit.
+  // The coordinate and date lines never wrap, so a narrowed box would push them past
+  // its edge — this is what holds them in.
   const fitScale = txt => {
     setFace(fBody, bLS);
     const w = ctx.measureText(txt).width;
     return w > P.wrapW ? P.wrapW / w : 1;
   };
+  const bodyScale = bodyLines.reduce((m, l) => Math.min(m,
+      fitScale(typeof l === 'string' ? l : l.coord[0] + '|' + l.coord[1])), 1);
+  const bSz2 = bSz * bodyScale;
+  const fBody2 = bodyScale < 1 ? BODY_WEIGHT + ' ' + bSz2 + 'px ' + FF : fBody;
   bodyLines.forEach((l, i) => {
-    if (typeof l === 'string') {
-      const sc = fitScale(l);
-      put(l, sc < 1 ? BODY_WEIGHT + ' ' + (bSz * sc) + 'px ' + FF : fBody, bLS * sc);
-    } else {
-      const sc = fitScale(l.coord[0] + '|' + l.coord[1]);
-      putCoord(l.coord[0], l.coord[1],
-               sc < 1 ? BODY_WEIGHT + ' ' + (bSz * sc) + 'px ' + FF : fBody,
-               bLS * sc, bSz * sc);
-    }
+    if (typeof l === 'string') put(l, fBody2, bLS * bodyScale);
+    else putCoord(l.coord[0], l.coord[1], fBody2, bLS * bodyScale, bSz2);
     if (i < nB - 1) baseline += bLH;
   });
 
