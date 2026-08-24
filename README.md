@@ -32,15 +32,13 @@ a different letter-spacing on every line.
 
 ## Map thumbnail
 
-Four sources:
+Three sources:
 
 - **Real tiles** — Voyager, Esri, Positron or OpenStreetMap, fetched for the coordinates
   you type. Works with no setup.
 - **Google Maps** — needs your own Maps Static API key (see below). The only source that
   returns genuine Google cartography.
-- **Your own screenshot** — drag, click, or Ctrl+V a screenshot of the map.
-  browser always shows its own picker; a page can never read another site silently.
-- **Your own image** — drag, click or Ctrl+V a screenshot of the map.
+- **Your own screenshot** — drag, click, or Ctrl+V an image of the map.
 
 ### Using a Google Maps key
 
