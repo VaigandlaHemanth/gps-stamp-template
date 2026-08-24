@@ -13,6 +13,10 @@
     --ink:#e8ecf1; --muted:#98a2b0; --accent:#5b9dff; --accent2:#2f6fd0;
   }
   *{box-sizing:border-box}
+  /* The hidden attribute only sets display:none at UA level, so any inline style or
+     class that sets display beats it. Several elements here do exactly that, which
+     left the crop dialog permanently covering the page and eating every click. */
+  [hidden]{display:none !important}
   body{margin:0;background:var(--bg);color:var(--ink);
        font:14px/1.5 "Inter",system-ui,"Segoe UI",Arial,sans-serif}
   header{padding:16px 22px;border-bottom:1px solid var(--line);display:flex;
