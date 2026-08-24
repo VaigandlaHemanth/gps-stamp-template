@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Stamp Template — design mockup tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14161a; --panel2:#23282f; --line:#31373f;
+    --ink:#e8ecf1; --muted:#98a2b0; --accent:#5b9dff; --accent2:#2f6fd0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.5 "Inter",system-ui,"Segoe UI",Arial,sans-serif}
+  header{padding:16px 22px;border-bottom:1px solid var(--line);display:flex;
+         align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.2px}
+  header .tag{font-size:11px;color:var(--muted);border:1px solid var(--line);
+              padding:2px 8px;border-radius:99px}
+  main{display:grid;grid-template-columns:380px 1fr;align-items:start}
+  @media (max-width:900px){ main{grid-template-columns:1fr} }
+  .panel{padding:18px 22px;border-right:1px solid var(--line);min-height:calc(100vh - 58px)}
+  .stage{padding:22px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 16px;padding:12px 14px 14px}
+  legend{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);padding:0 6px}
+  label{display:block;font-size:11.5px;color:var(--muted);margin:10px 0 4px}
+  input[type=text],input[type=date],input[type=time],textarea,select{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:7px;padding:7px 9px;font:13px/1.4 inherit}
+  textarea{resize:vertical;min-height:52px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .row{display:flex;gap:9px}.row>*{flex:1}
+  .drop{border:1.5px dashed var(--line);border-radius:9px;padding:16px;text-align:center;
+        color:var(--muted);cursor:pointer;font-size:12.5px;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--accent);color:var(--ink);background:#1a222f}
+  .drop b{color:var(--ink);font-weight:500}
+  button{background:var(--accent2);border:0;color:#fff;padding:10px 16px;border-radius:8px;
+         font:600 13.5px/1 inherit;cursor:pointer}
+  button:hover{background:var(--accent)}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:400}
+  button.ghost:hover{background:var(--panel2)}
+  canvas{max-width:100%;max-height:78vh;border-radius:6px;background:#0d0f12;
+         box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .hnd{position:absolute;pointer-events:auto;touch-action:none;width:16px;height:16px;
+       margin:-8px 0 0 -8px;border-radius:50%;background:#fff;border:2.5px solid var(--accent);
+       box-shadow:0 1px 5px rgba(0,0,0,.6);transition:transform .1s}
+  .hnd:hover{transform:scale(1.25)}
+  .hnd.bar-h{width:34px;height:12px;margin:-6px 0 0 -17px;border-radius:7px}
+  .hnd.bar-v{width:12px;height:34px;margin:-17px 0 0 -6px;border-radius:7px}
+  /* fingers need a much bigger target than a mouse pointer */
+  @media (pointer:coarse){
+    .hnd{width:30px;height:30px;margin:-15px 0 0 -15px;border-width:3px}
+    .hnd.bar-h{width:56px;height:24px;margin:-12px 0 0 -28px;border-radius:12px}
+    .hnd.bar-v{width:24px;height:56px;margin:-28px 0 0 -12px;border-radius:12px}
+  }
+  /* fullscreen editing */
+  .stage:fullscreen{background:var(--bg);width:100vw;height:100vh;padding:10px;
+                    justify-content:space-between}
+  .stage:fullscreen canvas{max-height:calc(100vh - 210px)}
+  #fsTools{width:100%;max-width:560px;background:var(--panel2);border:1px solid var(--line);
+           border-radius:12px;padding:10px 14px 14px}
+  #fsTools label{margin:6px 0 2px}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .val{font-size:11px;color:var(--muted);float:right}
+  .empty{color:var(--muted);text-align:center;padding:80px 20px;font-size:13.5px;max-width:420px}
+  details summary{cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.09em;
+                  color:var(--muted);margin-bottom:8px;outline:none}
+  .chk{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12.5px;color:var(--ink)}
+  .chk input{accent-color:var(--accent)}
+  .chk label{margin:0;color:var(--ink)}
+  .note{font-size:11.5px;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>GPS Stamp Template</h1>
+  <span class="tag">design mockup tool</span>
+  <span class="tag">runs entirely in your browser — nothing is uploaded</span>
+</header>
+
+<main>
+<section class="panel">
+
+  <fieldset>
+    <legend>Photo</legend>
+    <div class="drop" id="dropPhoto">Drop an image here or <b>click to choose</b><br>
+      <span id="photoInfo" style="font-size:11px"></span></div>
+    <input type="file" id="filePhoto" accept="image/*" hidden>
+  </fieldset>
+
+  <fieldset>
+    <legend>Stamp text</legend>
+    <label>Title <span class="val">wraps automatically</span></label>
+    <input type="text" id="title" value="Rayachoty Andhra Pradesh India">
+    <label>Address <span class="val">clipped to 2 lines, like the app</span></label>
+    <textarea id="address">3Q32+7GW, 17/34, S.N Colony, Rayachoty, Andhra Pradesh 516269, India</textarea>
+    <div class="row">
+      <div><label>Latitude</label><input type="text" id="lat" value="14.0533"></div>
+      <div><label>Longitude</label><input type="text" id="lng" value="78.7515"></div>
+    </div>
+    <div class="row">
+      <div><label>Date</label><input type="date" id="date" value="2026-07-24"></div>
+      <div><label>Time</label><input type="time" id="time" value="10:59"></div>
+    </div>
+    <label>Timezone line</label>
+    <select id="tz">
+      <option value="">cut off after AM/PM (matches your samples)</option>
+      <option value="GMT +05:30">show GMT +05:30</option>
+      <option value="GMT +04:00">show GMT +04:00</option>
+      <option value="GMT +00:00">show GMT +00:00</option>
+    </select>
+  </fieldset>
+
+  <fieldset>
+    <legend>Map thumbnail</legend>
+    <label>Source</label>
+    <select id="mapSrc">
+      <option value="osm">Real map at these coordinates</option>
+      <option value="gen">Generated street map</option>
+      <option value="img">My own screenshot</option>
+    </select>
+
+    <div id="osmBox">
+      <label>Style</label>
+      <select id="mapStyle">
+        <option value="google">Google Maps — exact match, needs your own API key</option>
+        <option value="voyager">Voyager — closest free lookalike</option>
+        <option value="esri">Esri Streets — has route shields</option>
+        <option value="positron">Positron — pale and minimal</option>
+        <option value="osm">OpenStreetMap standard</option>
+      </select>
+      <div id="keyBox" hidden>
+        <label>Google Maps Static API key</label>
+        <input type="text" id="gkey" placeholder="AIza…" autocomplete="off">
+        <p class="note">Free tier covers normal use. Get one at
+          <b>console.cloud.google.com</b> → enable <b>Maps Static API</b> → Credentials.
+          Stored only in this browser.</p>
+      </div>
+      <label>Zoom <span class="val" id="vZoom">17</span></label>
+      <input type="range" id="mapZoom" min="14" max="19" value="17">
+      <p class="note" id="osmStatus">Real tiles for these coordinates — needs internet.</p>
+    </div>
+
+    <div id="genBox" hidden>
+      <p class="note">Drawn from scratch and seeded by the coordinates, so each
+        location gets its own consistent street layout. Works offline.</p>
+    </div>
+
+    <div id="imgBox" hidden>
+      <div class="drop" id="dropMap">Drop an image, <b>click to choose</b>,<br>
+        or press <b>Ctrl&nbsp;+&nbsp;V</b> to paste a screenshot<br>
+        <span style="font-size:11px" id="mapInfo"></span></div>
+      <input type="file" id="fileMap" accept="image/*" hidden>
+      <a id="gmaps" class="ghost" target="_blank" rel="noopener"
+         style="display:block;text-align:center;text-decoration:none;margin-top:10px;
+                padding:8px 11px;font-size:12px;border:1px solid var(--line);
+                border-radius:8px;color:var(--ink)">Open Google Maps at these coordinates ↗</a>
+      <button id="grabBtn" style="width:100%;margin-top:8px;padding:9px 11px;font-size:12.5px">
+        📷 Grab it off the screen</button>
+      <p class="note">Open Maps, then hit <b>Grab</b> and pick that tab — you crop the
+        square right here, no saving a file. The browser always asks which surface to
+        share; a page is never allowed to read another site silently.</p>
+    </div>
+
+    <div class="chk"><input type="checkbox" id="showPin" checked><label for="showPin">Draw the red pin on top</label></div>
+  </fieldset>
+
+  <details>
+    <summary>Fine tuning</summary>
+    <label>Box opacity <span class="val" id="vOpacity">50%</span></label>
+    <input type="range" id="opacity" min="0" max="90" value="50">
+    <div id="tuneHome"><div id="tuneBox">
+      <label>Stamp size <span class="val" id="vScale">100%</span></label>
+      <input type="range" id="scale" min="30" max="250" value="100">
+      <label>Text size <span class="val" id="vText">100%</span></label>
+      <input type="range" id="textPct" min="60" max="180" value="100">
+      <label>Box width <span class="val" id="vBoxW">100%</span></label>
+      <input type="range" id="boxWpct" min="45" max="130" value="100">
+      <label>Box height <span class="val" id="vBoxH">100%</span></label>
+      <input type="range" id="boxHpct" min="60" max="220" value="100">
+    </div></div>
+    <p class="note"><b>Stamp size</b> scales everything together — box, text and map.
+      It stops growing once the panel reaches the edges of the photo, which on a
+      normal portrait shot is around 100%, because the original stamp already spans
+      the full width. To make the lettering bigger in place, use <b>Text size</b>;
+      the box grows taller to suit. <b>Box width / height</b> reshape just the panel.
+      Everything at 100% is the exact original.<br><br>
+      On the preview: drag a <b>corner</b> to scale the whole stamp, the
+      <b>right edge</b> for width, the <b>top edge</b> for height.</p>
+    <button class="ghost" id="resetBox" style="margin:8px 0 4px;padding:6px 11px;font-size:12px">Reset box to original</button>
+    <label>Stamp position <span class="val">only matters on wide images</span></label>
+    <select id="stampPos">
+      <option value="left">Bottom left</option>
+      <option value="center">Bottom centre</option>
+      <option value="right">Bottom right</option>
+    </select>
+    <label>Corner radius <span class="val" id="vRadius">36</span></label>
+    <input type="range" id="radius" min="0" max="90" value="36">
+    <label>Text halo <span class="val" id="vHalo">100%</span></label>
+    <input type="range" id="halo" min="0" max="250" value="100">
+    <div class="chk"><input type="checkbox" id="showThumb" checked><label for="showThumb">Show map thumbnail</label></div>
+    <p class="note">All sizes are proportional to the photo's width, so the stamp lands
+      identically on a 1200px or a 4000px image.</p>
+  </details>
+
+</section>
+
+<section class="stage" id="stage">
+  <div id="fontWarn" hidden style="width:100%;max-width:760px;background:#3a2a12;
+       border:1px solid #7a5a20;color:#ffd79a;border-radius:9px;padding:10px 13px;font-size:12.5px">
+    <b>Inter didn’t load.</b> The stamp is falling back to a system font, so the lettering
+    won’t match the original exactly. Connect to the internet and reload, or keep going if
+    an approximate match is fine.
+  </div>
+  <div id="empty" class="empty">Choose a photo to begin.<br><br>
+    The overlay is redrawn live at the photo's full resolution — what you download is
+    full quality, not the scaled-down preview.</div>
+  <div id="stageWrap" hidden style="position:relative;display:inline-block;max-width:100%;line-height:0">
+    <canvas id="cv" style="display:block"></canvas>
+    <div id="handles" style="position:absolute;inset:0;pointer-events:none"></div>
+  </div>
+  <div class="bar" id="bar" hidden>
+    <button id="fsBtn" class="ghost">⛶ Full screen edit</button>
+    <button id="dl">Download JPG</button>
+    <button class="ghost" id="dlPng">Download PNG</button>
+    <span class="val" id="dims"></span>
+  </div>
+  <div id="fsTools" hidden></div>
+</section>
+
+<div id="capModal" hidden style="position:fixed;inset:0;z-index:50;background:rgba(6,8,11,.93);
+     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px">
+  <div style="font-size:13px;color:var(--muted);text-align:center;max-width:640px">
+    Drag the square over the map. Drag a corner to resize it — it stays square, because
+    the stamp's thumbnail is square.
+  </div>
+  <canvas id="capCv" style="max-width:96vw;max-height:74vh;border-radius:8px;
+          touch-action:none;cursor:move;background:#000"></canvas>
+  <div class="bar">
+    <button id="capUse">Use this square</button>
+    <button class="ghost" id="capCancel">Cancel</button>
+  </div>
+</div>
+</main>
+
+<script>
+/* ---------- geometry, reverse-engineered from the reference photos ----------------
+   Fitted at 1200px wide by maximising pixel overlap (IoU) against the originals.
+   The face is Inter: Bold 700 for the title, Regular 400 for the body. The title
+   fit is solid - three lines across two photos agree on 65.4px to within 0.2px,
+   mean IoU 0.80. The body size is a compromise: letter-only lines want 54.2 and
+   digit-heavy lines want 56.2, so 55.2 keeps every line within ~2% of the original.
+   Every value is a fraction of the image WIDTH, so it scales to any resolution.   */
+const R = 1200;
+const M = {
+  marginX:      16/R,   // box inset left & right
+  marginBottom: 12/R,   // box inset from the bottom edge
+  radius:       36/R,
+  thumbLeft:    28/R,   // from box left
+  thumbSize:   290/R,
+  textLeft:    354/R,   // text origin, from box left
+  wrapWidth:   778/R,   // midpoint of [757,799] - the range that reproduces all
+                        // 17 observed line breaks across the three reference photos
+  titleSize:  65.4/R,
+  titleLS:    0.75/R,   // letter-spacing
+  titleLH:     103/R,
+  bodySize:   55.2/R,
+  bodyLS:        0/R,
+  bodyLH:     76.5/R,
+  padTop:      115/R,   // box top -> first title baseline
+  titleToBody:93.3/R,   // last title baseline -> first body baseline
+  padBottom:  41.2/R    // last body baseline -> box bottom
+};
+const TITLE_WEIGHT = 600, BODY_WEIGHT = 400;   // 600 beats 700 on both IoU and eye
+
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+let photo = null, mapImg = null, LAST = null;
+
+const FF = '"Inter",system-ui,"Segoe UI",Arial,sans-serif';
+const HAS_LS = 'letterSpacing' in ctx;   // Chrome/Edge yes, older Safari/Firefox no
+(async () => {
+  try {
+    await document.fonts.load('600 66px Inter');
+    await document.fonts.load('400 56px Inter');
+    await document.fonts.ready;
+  } catch (e) { /* offline: falls back to the system sans */ }
+  // a silent fallback would quietly produce the wrong lettering, so say so
+  const probe = document.createElement('canvas').getContext('2d');
+  probe.font = '600 100px "Inter",sans-serif';
+  const withInter = probe.measureText('Pradesh India 516115').width;
+  probe.font = '600 100px "__none__",sans-serif';
+  const without = probe.measureText('Pradesh India 516115').width;
+  if (Math.abs(withInter - without) < 0.5) $('fontWarn').hidden = false;
+  draw();
+})();
+
+/* ---------- file inputs ---------- */
+function wireDrop(dropEl, inputEl, onLoad) {
+  dropEl.onclick = () => inputEl.click();
+  dropEl.ondragover = e => { e.preventDefault(); dropEl.classList.add('over'); };
+  dropEl.ondragleave = () => dropEl.classList.remove('over');
+  dropEl.ondrop = e => {
+    e.preventDefault(); dropEl.classList.remove('over');
+    if (e.dataTransfer.files[0]) read(e.dataTransfer.files[0], onLoad);
+  };
+  inputEl.onchange = () => { if (inputEl.files[0]) read(inputEl.files[0], onLoad); };
+}
+function read(file, cb) {
+  const fr = new FileReader();
+  fr.onload = () => { const im = new Image(); im.onload = () => cb(im, file); im.src = fr.result; };
+  fr.readAsDataURL(file);
+}
+wireDrop($('dropPhoto'), $('filePhoto'), (im, f) => {
+  photo = im;
+  $('photoInfo').textContent = f.name + ' — ' + im.naturalWidth + '×' + im.naturalHeight;
+  $('empty').hidden = true; $('stageWrap').hidden = false; $('bar').hidden = false;
+  draw();
+});
+wireDrop($('dropMap'), $('fileMap'), (im, f) => {
+  mapImg = im;
+  $('mapInfo').textContent = f ? f.name : 'pasted image';
+  $('mapSrc').value = 'img'; syncMapUI(); draw();
+});
+// paste a map screenshot straight in
+window.addEventListener('paste', e => {
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  for (const it of items) {
+    if (it.type && it.type.indexOf('image/') === 0) {
+      const f = it.getAsFile();
+      if (f) {
+        e.preventDefault();
+        read(f, im => {
+          mapImg = im; $('mapInfo').textContent = 'pasted image';
+          $('mapSrc').value = 'img'; syncMapUI(); draw();
+        });
+      }
+      return;
+    }
+  }
+});
+/* ---------- grab the map off the screen ----------
+   A page can never read another origin's pixels on its own. getDisplayMedia is the
+   sanctioned path: the browser shows its own picker, the user chooses what to share,
+   and only then do we get frames. Streams captured this way don't taint the canvas,
+   so Download keeps working.                                                        */
+const CAP = { src: null, sel: null, view: null, drag: null };
+async function grabScreen() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    $('osmStatus').textContent = 'This browser has no screen capture — use Ctrl+V instead.';
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { displaySurface: 'browser' }, audio: false, preferCurrentTab: false });
+  } catch (e) { return; }                       // user dismissed the picker
+  const v = document.createElement('video');
+  v.srcObject = stream; v.muted = true; v.playsInline = true;
+  try { await v.play(); } catch (e) {}
+  await new Promise(r => setTimeout(r, 350));   // let a real frame arrive
+  const c = document.createElement('canvas');
+  c.width = v.videoWidth || 1280; c.height = v.videoHeight || 720;
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  stream.getTracks().forEach(t => t.stop());
+  openCropper(c);
+}
+function openCropper(srcCanvas) {
+  CAP.src = srcCanvas;
+  const s = Math.round(Math.min(srcCanvas.width, srcCanvas.height) * 0.5);
+  CAP.sel = { x: Math.round((srcCanvas.width - s) / 2),
+              y: Math.round((srcCanvas.height - s) / 2), s };
+  $('capModal').hidden = false;
+  const cc = $('capCv');
+  const maxW = Math.min(window.innerWidth * 0.96, 1100);
+  const maxH = window.innerHeight * 0.74;
+  const k = Math.min(maxW / srcCanvas.width, maxH / srcCanvas.height, 1);
+  cc.width = Math.round(srcCanvas.width * k);
+  cc.height = Math.round(srcCanvas.height * k);
+  CAP.view = k;
+  paintCropper();
+}
+function paintCropper() {
+  const cc = $('capCv'), g = cc.getContext('2d'), k = CAP.view, S = CAP.sel;
+  g.clearRect(0, 0, cc.width, cc.height);
+  g.drawImage(CAP.src, 0, 0, cc.width, cc.height);
+  g.fillStyle = 'rgba(0,0,0,.55)';
+  const x = S.x * k, y = S.y * k, s = S.s * k;
+  g.fillRect(0, 0, cc.width, y);
+  g.fillRect(0, y + s, cc.width, cc.height - y - s);
+  g.fillRect(0, y, x, s);
+  g.fillRect(x + s, y, cc.width - x - s, s);
+  g.strokeStyle = '#5b9dff'; g.lineWidth = 2; g.strokeRect(x, y, s, s);
+  g.fillStyle = '#fff';
+  [[x, y], [x + s, y], [x, y + s], [x + s, y + s]].forEach(([hx, hy]) => {
+    g.beginPath(); g.arc(hx, hy, 7, 0, 7); g.fill();
+    g.strokeStyle = '#2f6fd0'; g.lineWidth = 2.5; g.stroke();
+  });
+}
+(() => {
+  const cc = $('capCv');
+  const pos = e => { const r = cc.getBoundingClientRect();
+    return { x: (e.clientX - r.left) / CAP.view * (cc.width / r.width),
+             y: (e.clientY - r.top) / CAP.view * (cc.height / r.height) }; };
+  cc.addEventListener('pointerdown', e => {
+    if (!CAP.sel) return;
+    e.preventDefault();
+    try { cc.setPointerCapture(e.pointerId); } catch (err) {}
+    const p = pos(e), S = CAP.sel, tol = 22 / CAP.view;
+    const corner = [['tl', S.x, S.y], ['tr', S.x + S.s, S.y],
+                    ['bl', S.x, S.y + S.s], ['br', S.x + S.s, S.y + S.s]]
+      .find(([, cx, cy]) => Math.abs(p.x - cx) < tol && Math.abs(p.y - cy) < tol);
+    CAP.drag = corner ? { mode: corner[0], p, S: { ...S } } : { mode: 'move', p, S: { ...S } };
+  });
+  cc.addEventListener('pointermove', e => {
+    if (!CAP.drag) return;
+    const p = pos(e), d = CAP.drag, W = CAP.src.width, H = CAP.src.height;
+    const dx = p.x - d.p.x, dy = p.y - d.p.y;
+    if (d.mode === 'move') {
+      CAP.sel.x = Math.max(0, Math.min(W - d.S.s, d.S.x + dx));
+      CAP.sel.y = Math.max(0, Math.min(H - d.S.s, d.S.y + dy));
+    } else {
+      // keep it square: one delta drives the side length
+      const grow = (d.mode === 'br') ? Math.max(dx, dy)
+                 : (d.mode === 'tl') ? Math.max(-dx, -dy)
+                 : (d.mode === 'tr') ? Math.max(dx, -dy) : Math.max(-dx, dy);
+      let s = Math.max(40, d.S.s + grow);
+      let x = (d.mode === 'tl' || d.mode === 'bl') ? d.S.x + (d.S.s - s) : d.S.x;
+      let y = (d.mode === 'tl' || d.mode === 'tr') ? d.S.y + (d.S.s - s) : d.S.y;
+      s = Math.min(s, W, H);
+      x = Math.max(0, Math.min(W - s, x));
+      y = Math.max(0, Math.min(H - s, y));
+      CAP.sel = { x, y, s };
+    }
+    paintCropper();
+  });
+  const stop = () => { CAP.drag = null; };
+  cc.addEventListener('pointerup', stop);
+  cc.addEventListener('pointercancel', stop);
+})();
+$('capUse').onclick = () => {
+  const S = CAP.sel, out = document.createElement('canvas');
+  out.width = out.height = Math.round(S.s);
+  out.getContext('2d').drawImage(CAP.src, S.x, S.y, S.s, S.s, 0, 0, out.width, out.height);
+  mapImg = out;
+  $('mapInfo').textContent = 'grabbed from screen (' + out.width + 'px)';
+  $('mapSrc').value = 'img'; syncMapUI();
+  $('capModal').hidden = true; CAP.src = null;
+  draw();
+};
+$('capCancel').onclick = () => { $('capModal').hidden = true; CAP.src = null; };
+$('grabBtn').onclick = grabScreen;
+
+function syncMapUI() {
+  const v = $('mapSrc').value;
+  $('osmBox').hidden = v !== 'osm';
+  $('genBox').hidden = v !== 'gen';
+  $('imgBox').hidden = v !== 'img';
+}
+function syncMapsLink() {
+  const la = $('lat').value, ln = $('lng').value;
+  $('gmaps').href = 'https://www.google.com/maps/@' + la + ',' + ln + ','
+                  + $('mapZoom').value + 'z';
+}
+$('mapSrc').addEventListener('change', () => { syncMapUI(); draw(); });
+syncMapUI(); syncMapsLink();
+
+/* ---------- text helpers ---------- */
+function setFaceOn(c, font, ls) {
+  c.font = font;
+  if (HAS_LS) c.letterSpacing = (ls || 0) + 'px';
+}
+function setFace(font, ls) { setFaceOn(ctx, font, ls); }
+function wrap(text, maxW, font, ls, maxLines) {
+  setFace(font, ls);
+  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  const lines = []; let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(t).width <= maxW || !cur) { cur = t; }
+    else {
+      lines.push(cur); cur = w;
+      if (maxLines && lines.length === maxLines) { cur = ''; break; }
+    }
+  }
+  if (cur) lines.push(cur);
+  return maxLines ? lines.slice(0, maxLines) : lines;
+}
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function stampDate() {
+  const d = $('date').value, t = $('time').value || '00:00';
+  if (!d) return '';
+  const p = d.split('-').map(Number);
+  const tp = t.split(':').map(Number);
+  const dt = new Date(p[0], p[1] - 1, p[2]);
+  const h = tp[0], mi = tp[1];
+  const ap = h >= 12 ? 'PM' : 'AM';
+  const h12 = (h % 12 === 0) ? 12 : h % 12;
+  const tz = $('tz').value;
+  // note the DOUBLE space between date and time - the original app does this too
+  return DAYS[dt.getDay()] + ', ' + p[2] + ' ' + MONS[p[1] - 1] + '  '
+       + h12 + ':' + String(mi).padStart(2, '0') + ' ' + ap + ','
+       + (tz ? ' ' + tz : '');
+}
+function roundRect(c, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y,     x + w, y + h, r);
+  c.arcTo(x + w, y + h, x,     y + h, r);
+  c.arcTo(x,     y + h, x,     y,     r);
+  c.arcTo(x,     y,     x + w, y,     r);
+  c.closePath();
+}
+
+/* ---------- generated placeholder map (deterministic from lat/long) ---------- */
+function seeded(seed) {
+  let s = (seed >>> 0) || 1;
+  return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 10000) / 10000; };
+}
+/* The reference thumbnails are zoomed right in (~z17-18): a few thick slate roads,
+   big place labels clipped by the edges, a POI badge and a route shield. A regular
+   grid reads as fake immediately, so this mimics that structure instead.          */
+function drawPlaceholderMap(c, x, y, S) {
+  const key = Math.abs(Math.round((parseFloat($('lat').value) || 0) * 1e4)
+                     + Math.round((parseFloat($('lng').value) || 0) * 1e4) * 7) + 1;
+  const rnd = seeded(key);
+  const words = ($('title').value || 'Map').trim().split(/\s+/);
+  c.save();
+  c.beginPath(); c.rect(x, y, S, S); c.clip();
+  c.translate(x, y);
+
+  c.fillStyle = '#f6f4f0'; c.fillRect(0, 0, S, S);
+
+  // land use: a couple of cream blocks and a green patch
+  for (let i = 0; i < 3; i++) {
+    c.fillStyle = i === 0 ? '#e6efdd' : '#f9f0d9';
+    c.fillRect(S * (rnd() * .9 - .15), S * (rnd() * .9 - .15),
+               S * (.25 + rnd() * .4), S * (.2 + rnd() * .35));
+  }
+
+  // road network: straight runs crossing the whole tile at mixed angles
+  const roads = [];
+  for (let i = 0; i < 2 + (rnd() > .45 ? 1 : 0); i++)
+    roads.push({ w: S * (.075 + rnd() * .04), a: rnd() * Math.PI, o: (rnd() - .5) * S * .75, big: true });
+  for (let i = 0; i < 4 + Math.floor(rnd() * 3); i++)
+    roads.push({ w: S * (.022 + rnd() * .016), a: rnd() * Math.PI, o: (rnd() - .5) * S * 1.05, big: false });
+
+  const run = (r, col, mul) => {
+    c.save(); c.translate(S / 2, S / 2); c.rotate(r.a); c.translate(0, r.o);
+    c.strokeStyle = col; c.lineWidth = r.w * mul; c.lineCap = 'butt';
+    c.beginPath(); c.moveTo(-S * 1.6, 0); c.lineTo(S * 1.6, 0); c.stroke(); c.restore();
+  };
+  const arterial = { w: S * .06, a: rnd() * Math.PI, o: (rnd() - .5) * S * .8 };
+  roads.forEach(r => run(r, '#dcd8d0', 1.4));                       // casing
+  run(arterial, '#e8d59a', 1.4);
+  roads.forEach(r => run(r, r.big ? '#b3c6d2' : '#ffffff', 1));     // surface
+  run(arterial, '#f9e7b4', 1);
+
+  // building footprints hugging the roads
+  c.fillStyle = '#eae7e0';
+  for (let i = 0; i < 22; i++)
+    c.fillRect(S * rnd(), S * rnd(), S * (.04 + rnd() * .07), S * (.04 + rnd() * .06));
+
+  // labels, deliberately running off the edges the way the originals do
+  c.textBaseline = 'alphabetic';
+  setFaceOn(c, '600 ' + (S * .155) + 'px ' + FF, 0);
+  c.fillStyle = '#4a4a4a';
+  c.fillText(words[0], -S * (.05 + rnd() * .22), S * (.15 + rnd() * .12));
+  if (words[1]) {
+    setFaceOn(c, '500 ' + (S * .115) + 'px ' + FF, 0);
+    c.fillStyle = '#3b6bd0';
+    c.fillText(words[1], S * (.06 + rnd() * .2), S * (.86 + rnd() * .1));
+  }
+  // a street name angled along one of the big roads
+  const big = roads.find(r => r.big);
+  if (big) {
+    c.save(); c.translate(S / 2, S / 2); c.rotate(big.a > Math.PI / 2 ? big.a - Math.PI : big.a);
+    c.translate(-S * .1, big.o + S * .035);
+    setFaceOn(c, '500 ' + (S * .062) + 'px ' + FF, 0);
+    c.fillStyle = '#6d7a83'; c.fillText('Main Rd', 0, 0); c.restore();
+  }
+
+  // route shield — kept clear of the pin (which owns x .34-.66, y .16-.62)
+  const sx = S * (.70 + rnd() * .14), sy = S * (.66 + rnd() * .14);
+  const sw = S * .17, sh = S * .115;
+  c.fillStyle = '#fff'; c.strokeStyle = '#5f5f5f'; c.lineWidth = S * .011;
+  roundRect(c, sx, sy, sw, sh, S * .022); c.fill(); c.stroke();
+  setFaceOn(c, '500 ' + (S * .082) + 'px ' + FF, 0);
+  c.fillStyle = '#333'; c.textAlign = 'center';
+  c.fillText(String(100 + (key % 800)), sx + sw / 2, sy + sh * .78);
+  c.textAlign = 'left';
+
+  // POI badge with a white ring, like the restaurant / store pins
+  const px = S * (rnd() > .5 ? .15 + rnd() * .1 : .78 + rnd() * .09);
+  const py = S * (.22 + rnd() * .3), pr = S * .085;
+  const shop = rnd() > .5;
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(px, py, pr * 1.22, 0, 7); c.fill();
+  c.fillStyle = shop ? '#3d8bef' : '#f29900';
+  c.beginPath(); c.arc(px, py, pr, 0, 7); c.fill();
+  c.strokeStyle = '#fff'; c.fillStyle = '#fff'; c.lineWidth = pr * .17;
+  if (shop) {                                    // trolley
+    c.beginPath(); c.moveTo(px - pr * .5, py - pr * .38); c.lineTo(px - pr * .28, py - pr * .38);
+    c.lineTo(px + pr * .1, py + pr * .16); c.stroke();
+    c.beginPath(); c.moveTo(px - pr * .34, py - pr * .1); c.lineTo(px + pr * .5, py - pr * .1);
+    c.lineTo(px + pr * .26, py + pr * .18); c.stroke();
+    c.beginPath(); c.arc(px + pr * .3, py + pr * .45, pr * .12, 0, 7); c.fill();
+  } else {                                       // fork + knife
+    c.lineWidth = pr * .15;
+    c.beginPath(); c.moveTo(px - pr * .3, py - pr * .5); c.lineTo(px - pr * .3, py + pr * .5); c.stroke();
+    c.beginPath(); c.moveTo(px - pr * .5, py - pr * .5); c.lineTo(px - pr * .5, py - pr * .05); c.stroke();
+    c.beginPath(); c.moveTo(px - pr * .1, py - pr * .5); c.lineTo(px - pr * .1, py - pr * .05); c.stroke();
+    c.beginPath(); c.moveTo(px + pr * .35, py - pr * .5); c.lineTo(px + pr * .35, py + pr * .5); c.stroke();
+  }
+  c.restore();
+}
+
+/* ---------- real map tiles (OpenStreetMap) ---------- */
+const TILE_STYLES = {
+  voyager:  { url: (z,x,y) => 'https://basemaps.cartocdn.com/rastertiles/voyager/'+z+'/'+x+'/'+y+'.png',
+              credit: '© OpenStreetMap, © CARTO' },
+  positron: { url: (z,x,y) => 'https://basemaps.cartocdn.com/rastertiles/light_all/'+z+'/'+x+'/'+y+'.png',
+              credit: '© OpenStreetMap, © CARTO' },
+  osm:      { url: (z,x,y) => 'https://tile.openstreetmap.org/'+z+'/'+x+'/'+y+'.png',
+              credit: '© OpenStreetMap' },
+  esri:     { url: (z,x,y) => 'https://server.arcgisonline.com/ArcGIS/rest/services/'
+                            + 'World_Street_Map/MapServer/tile/'+z+'/'+y+'/'+x,
+              credit: '© Esri' }
+};
+/* Google's own Maps Static API. This is the licensed route and the only one that
+   returns genuine Google cartography (wordmark included) — it needs the user's own
+   key. Google serves it with Access-Control-Allow-Origin:*, so the canvas stays
+   clean and Download still works. */
+/* Put your Maps Static API key between the quotes to have it work on every device
+   with nothing to type. Safe to commit ONLY once the key is restricted in Cloud
+   Console to Websites -> https://vaigandlahemanth.github.io/* and to the Maps Static
+   API alone. A browser key is visible in its own network requests either way, so the
+   referrer restriction is the actual protection, not secrecy. Left empty, the tool
+   just asks for the key once per browser and remembers it locally. */
+const DEFAULT_GKEY = '';
+function buildGoogle(lat, lng, z, S) {
+  const key = ($('gkey').value || '').trim() || DEFAULT_GKEY;
+  if (!key) return Promise.reject(new Error('no key'));
+  const px = Math.min(640, Math.round(S / 2));
+  const url = 'https://maps.googleapis.com/maps/api/staticmap'
+            + '?center=' + lat + ',' + lng + '&zoom=' + z
+            + '&size=' + px + 'x' + px + '&scale=2&format=png'
+            + '&key=' + encodeURIComponent(key);
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      const c = document.createElement('canvas'); c.width = S; c.height = S;
+      c.getContext('2d').drawImage(im, 0, 0, S, S);
+      res(c);
+    };
+    im.onerror = () => rej(new Error('google static maps rejected the request'));
+    im.src = url;
+  });
+}
+
+let osmCanvas = null, osmKey = '', osmBusy = '';
+function osmThumb(lat, lng, z, S) {
+  const style = $('mapStyle').value;
+  const key = [lat, lng, z, Math.round(S), style, style === 'google' ? $('gkey').value : ''].join('|');
+  if (key === osmKey || key === osmBusy) return key === osmKey ? osmCanvas : null;
+  osmBusy = key;
+  $('osmStatus').textContent = 'Loading map tiles…';
+  buildOsm(lat, lng, z, Math.round(S), style).then(cv => {
+    osmCanvas = cv; osmKey = key; osmBusy = '';
+    $('osmStatus').textContent = 'Real tiles for these coordinates — needs internet.';
+    draw();
+  }).catch(err => {
+    osmBusy = '';
+    $('osmStatus').textContent = style === 'google'
+      ? ((($('gkey').value || '').trim() || DEFAULT_GKEY)
+          ? 'Google rejected that key. Check Maps Static API is enabled, and that the '
+            + 'key’s website restriction allows ' + location.origin
+            + ' (a key locked to your Pages URL will not work on localhost or file://).'
+          : 'Paste your Google Maps Static API key above.')
+      : 'Could not load tiles (offline?) — showing the generated map instead.';
+    draw();
+  });
+  return null;
+}
+function buildOsm(lat, lng, z, S, style) {
+  if (style === 'google') return buildGoogle(lat, lng, z, S);
+  const T = TILE_STYLES[style] || TILE_STYLES.voyager;
+  const n = Math.pow(2, z);
+  const xf = (lng + 180) / 360 * n;
+  const la = lat * Math.PI / 180;
+  const yf = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * n;
+  const px = xf * 256, py = yf * 256, half = S / 2;
+  const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#f2efe9'; g.fillRect(0, 0, S, S);
+  const jobs = [];
+  for (let tx = Math.floor((px - half) / 256); tx <= Math.floor((px + half) / 256); tx++)
+    for (let ty = Math.floor((py - half) / 256); ty <= Math.floor((py + half) / 256); ty++) {
+      if (ty < 0 || ty >= n) continue;
+      const wx = ((tx % n) + n) % n;
+      jobs.push(new Promise(res => {
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = () => { g.drawImage(im, tx * 256 - px + half, ty * 256 - py + half, 256, 256); res(1); };
+        im.onerror = () => res(0);
+        im.src = T.url(z, wx, ty);
+      }));
+    }
+  return Promise.all(jobs).then(r => {
+    if (!r.some(Boolean)) throw new Error('no tiles');
+    const fs2 = Math.round(S * 0.052);              // these providers require attribution
+    g.font = '500 ' + fs2 + 'px ' + FF;
+    const t = T.credit, w = g.measureText(t).width;
+    g.fillStyle = 'rgba(255,255,255,.72)';
+    g.fillRect(S - w - S * .04, S - fs2 * 1.5, w + S * .04, fs2 * 1.5);
+    g.fillStyle = '#5a5a5a'; g.textBaseline = 'bottom';
+    g.fillText(t, S - w - S * .02, S - fs2 * .22);
+    return cv;
+  });
+}
+function drawPin(c, cx, cy, h) {
+  const w = h * 0.68, r = w / 2, ty = cy - h;
+  c.save(); c.fillStyle = '#ea4335';
+  c.beginPath();
+  c.moveTo(cx, cy);
+  c.bezierCurveTo(cx - w * .52, cy - h * .52, cx - r, ty + r * 1.05, cx - r, ty + r);
+  c.arc(cx, ty + r, r, Math.PI, 0);
+  c.bezierCurveTo(cx + r, ty + r * 1.05, cx + w * .52, cy - h * .52, cx, cy);
+  c.closePath(); c.fill();
+  c.fillStyle = '#b31412';
+  c.beginPath(); c.arc(cx, ty + r, r * .42, 0, Math.PI * 2); c.fill();
+  c.restore();
+}
+
+/* ---------- the render ---------- */
+function draw() {
+  if (!photo) return;
+  const W = photo.naturalWidth, H = photo.naturalHeight;
+  cv.width = W; cv.height = H;
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(photo, 0, 0, W, H);
+
+  const fs = (+$('textPct').value) / 100;         // typography only (box height follows)
+  const sPct = (+$('scale').value) / 100;         // uniform stamp scale
+  // Everything is proportional to a single scale unit. On a 3:4 phone photo that
+  // unit is the image width, exactly as the original app behaves. On a wide or
+  // short image, width alone would make the box taller than the photo, so the
+  // unit is capped to keep the stamp inside. Line breaks are unaffected: wrap
+  // width and type size scale together, so they are invariant to the unit.
+  const showThumb = $('showThumb').checked;
+  const wPct = (+$('boxWpct').value) / 100, hPct = (+$('boxHpct').value) / 100;
+  // "Stamp size" scales box, text and map together (it feeds k below). Box width then
+  // widens or narrows the panel, taking the text column with it so the text reflows.
+  const baseWrap = showThumb ? M.wrapWidth : M.wrapWidth + M.textLeft - M.thumbLeft;
+  const wrapFrac = Math.max(0.06, baseWrap + (1 - 2 * M.marginX) * (wPct - 1));
+  const unit = u => ({
+    tSz: M.titleSize * u * fs, tLH: M.titleLH * u * fs, tLS: M.titleLS * u * fs,
+    bSz: M.bodySize  * u * fs, bLH: M.bodyLH  * u * fs, bLS: M.bodyLS  * u * fs,
+    fTitle: TITLE_WEIGHT + ' ' + (M.titleSize * u * fs) + 'px ' + FF,
+    fBody:  BODY_WEIGHT  + ' ' + (M.bodySize  * u * fs) + 'px ' + FF,
+    wrapW:  wrapFrac * u
+  });
+
+  let P = unit(W);
+  const titleLines = wrap($('title').value, P.wrapW, P.fTitle, P.tLS);
+  // the coordinate line carries a marker: the original's separator bar is only
+  // cap height, whereas Inter's "|" glyph overshoots it, so we draw the bar ourselves
+  const bodyLines = wrap($('address').value, P.wrapW, P.fBody, P.bLS, 2)
+    .concat([{ coord: ['Lat: ' + $('lat').value + ' ', ' Long: ' + $('lng').value] },
+             stampDate()])
+    .filter(s => s !== '');
+  const nT = Math.max(titleLines.length, 1), nB = bodyLines.length;
+
+  // box height as a pure fraction of the scale unit, then shrink the unit to fit
+  const hFrac = (M.padTop + M.padBottom + M.titleToBody) * fs
+              + (nT - 1) * M.titleLH * fs + (nB - 1) * M.bodyLH * fs;
+  // The auto-fit is only about the NATURAL size — it stops a wide photo producing a
+  // box taller than itself. It deliberately ignores the user's height slider, so
+  // enlarging the box never shrinks the type or the width.
+  // Soft fit picks a sane natural size (a wide photo would otherwise get a box taller
+  // than itself); the user's scale then multiplies that, up to a hard cap that keeps
+  // the box inside the image. On a 3:4 photo the soft fit is inert, so 100% is exact.
+  // measured at 100% text, so enlarging the type grows the box downward-to-upward
+  // rather than quietly narrowing it
+  const hFrac0 = hFrac / fs;
+  let kNat = W;
+  if (kNat * hFrac0 > H * 0.55) kNat = H * 0.55 / hFrac0;
+  let k = kNat * sPct;
+  if (k * hFrac > H * 0.92) k = H * 0.92 / hFrac;
+  // and keep it inside the image horizontally — the original stamp is already almost
+  // full width, so on a normal photo this is what stops "bigger" from running off
+  const kWideMax = W / (M.marginX + (1 - 2 * M.marginX) * wPct);
+  if (k > kWideMax) k = kWideMax;
+  P = unit(k);
+  const tSz = P.tSz, tLH = P.tLH, tLS = P.tLS;
+  const bSz = P.bSz, bLH = P.bLH, bLS = P.bLS;
+  const fTitle = P.fTitle, fBody = P.fBody;
+
+  const natH = k * hFrac;              // height the content actually needs
+  const boxH = Math.min(natH * hPct,   // 100% == the original
+                        H - 2 * M.marginBottom * k);   // never taller than the photo
+  const vPad = (boxH - natH) / 2;      // extra height becomes padding around the text
+  const boxW = k * (1 - 2 * M.marginX) * wPct;
+  const pos  = $('stampPos').value;
+  const boxX = pos === 'center' ? (W - boxW) / 2
+             : pos === 'right'  ? W - boxW - M.marginX * k
+             :                    M.marginX * k;
+  const boxY = H - M.marginBottom * k - boxH;
+  const textX = boxX + (showThumb ? M.textLeft * k : M.thumbLeft * k);
+  LAST = { boxX, boxY, boxW, boxH, W, H };   // for edge dragging on the preview
+
+  ctx.save();
+  roundRect(ctx, boxX, boxY, boxW, boxH, (+$('radius').value) / R * k);
+  ctx.fillStyle = 'rgba(0,0,0,' + ((+$('opacity').value) / 100) + ')';
+  ctx.fill();
+  ctx.restore();
+
+  if (showThumb) {
+    const S = Math.min(M.thumbSize * k, boxH - M.marginX * k * 2);
+    const tx = boxX + M.thumbLeft * k, ty = boxY + (boxH - S) / 2;
+    const src = $('mapSrc').value;
+    const blit = im => {
+      const iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height;
+      const s = Math.max(S / iw, S / ih);
+      const dw = iw * s, dh = ih * s;
+      ctx.save(); ctx.beginPath(); ctx.rect(tx, ty, S, S); ctx.clip();
+      ctx.drawImage(im, tx + (S - dw) / 2, ty + (S - dh) / 2, dw, dh);
+      ctx.restore();
+    };
+    if (src === 'img' && mapImg) {
+      blit(mapImg);
+    } else if (src === 'osm') {
+      const tile = osmThumb(parseFloat($('lat').value) || 0,
+                            parseFloat($('lng').value) || 0,
+                            +$('mapZoom').value, S);
+      if (tile) blit(tile); else drawPlaceholderMap(ctx, tx, ty, S);
+    } else {
+      drawPlaceholderMap(ctx, tx, ty, S);
+    }
+    if ($('showPin').checked) drawPin(ctx, tx + S / 2, ty + S * .62, S * .46);
+  }
+
+  const halo = (+$('halo').value) / 100;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  let baseline = boxY + vPad + M.padTop * k * fs;
+  const haloOn = () => {
+    ctx.strokeStyle = 'rgba(0,0,0,.62)';
+    ctx.lineWidth = 5.5 / R * k * fs * halo;
+    ctx.lineJoin = 'round'; ctx.miterLimit = 2;
+    ctx.shadowColor = 'rgba(0,0,0,.7)';
+    ctx.shadowBlur = 2.5 / R * k * fs * halo;
+  };
+  const put = (txt, font, ls, x) => {
+    setFace(font, ls);
+    if (halo > 0) { ctx.save(); haloOn(); ctx.strokeText(txt, x === undefined ? textX : x, baseline); ctx.restore(); }
+    ctx.fillStyle = '#fff';
+    ctx.fillText(txt, x === undefined ? textX : x, baseline);
+  };
+  // "Lat: … | Long: …" — the bar is drawn by hand at cap height, matching the original
+  const putCoord = (pre, post, font, ls, size) => {
+    setFace(font, ls);
+    const wPre = ctx.measureText(pre).width, slot = ctx.measureText('|').width;
+    const barW = size * (5 / 55.2), cap = size * 0.727;
+    const bx = textX + wPre + (slot - barW) / 2;
+    put(pre, font, ls);
+    if (halo > 0) { ctx.save(); haloOn(); ctx.strokeRect(bx, baseline - cap, barW, cap); ctx.restore(); }
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(bx, baseline - cap, barW, cap);
+    put(post, font, ls, textX + wPre + slot);
+  };
+  // safety net: a single unbreakable word can be wider than the column, so shrink
+  // any line that would otherwise run past the panel edge
+  const fitTitle = txt => {
+    setFace(fTitle, tLS);
+    const w = ctx.measureText(txt).width;
+    return w > P.wrapW ? P.wrapW / w : 1;
+  };
+  titleLines.forEach((l, i) => {
+    const sc = fitTitle(l);
+    put(l, sc < 1 ? TITLE_WEIGHT + ' ' + (tSz * sc) + 'px ' + FF : fTitle, tLS * sc);
+    if (i < nT - 1) baseline += tLH;
+  });
+  baseline += M.titleToBody * k * fs;
+  // The coordinate and date lines never wrap, so if the box has been narrowed they
+  // would run past its edge — shrink just those lines enough to fit.
+  const fitScale = txt => {
+    setFace(fBody, bLS);
+    const w = ctx.measureText(txt).width;
+    return w > P.wrapW ? P.wrapW / w : 1;
+  };
+  bodyLines.forEach((l, i) => {
+    if (typeof l === 'string') {
+      const sc = fitScale(l);
+      put(l, sc < 1 ? BODY_WEIGHT + ' ' + (bSz * sc) + 'px ' + FF : fBody, bLS * sc);
+    } else {
+      const sc = fitScale(l.coord[0] + '|' + l.coord[1]);
+      putCoord(l.coord[0], l.coord[1],
+               sc < 1 ? BODY_WEIGHT + ' ' + (bSz * sc) + 'px ' + FF : fBody,
+               bLS * sc, bSz * sc);
+    }
+    if (i < nB - 1) baseline += bLH;
+  });
+
+  $('dims').textContent = W + ' × ' + H;
+  placeHandles();
+}
+
+/* ---------- wiring ---------- */
+['title','address','lat','lng','date','time','tz','opacity','scale','radius','halo',
+ 'showThumb','showPin','mapZoom','stampPos','boxWpct','boxHpct','textPct'].forEach(id => {
+  $(id).addEventListener('input', draw);
+  $(id).addEventListener('change', draw);
+});
+$('textPct').addEventListener('input', e => $('vText').textContent = e.target.value + '%');
+$('boxWpct').addEventListener('input', e => $('vBoxW').textContent = e.target.value + '%');
+$('boxHpct').addEventListener('input', e => $('vBoxH').textContent = e.target.value + '%');
+function syncKeyBox() {
+  $('keyBox').hidden = $('mapStyle').value !== 'google';
+}
+$('mapStyle').addEventListener('change', () => { syncKeyBox(); draw(); });
+$('gkey').addEventListener('change', () => {
+  try { localStorage.setItem('gmapsKey', $('gkey').value.trim()); } catch (e) {}
+  draw();
+});
+try {
+  const saved = localStorage.getItem('gmapsKey');
+  if (saved) $('gkey').value = saved;
+} catch (e) {}
+// default to a style that works with no setup
+$('mapStyle').value = 'voyager';
+syncKeyBox();
+['lat','lng','mapZoom'].forEach(id => $(id).addEventListener('input', syncMapsLink));
+$('mapZoom').addEventListener('input', e => $('vZoom').textContent = e.target.value);
+$('opacity').addEventListener('input', e => $('vOpacity').textContent = e.target.value + '%');
+$('scale').addEventListener('input',   e => $('vScale').textContent   = e.target.value + '%');
+$('radius').addEventListener('input',  e => $('vRadius').textContent  = e.target.value);
+$('halo').addEventListener('input',    e => $('vHalo').textContent    = e.target.value + '%');
+
+/* ---------- resize handles over the preview ----------
+   They live in an overlay div, not on the canvas, so they never end up in the
+   exported image. Positions are percentages of the canvas, so they track it at
+   whatever size the browser is displaying it.                                   */
+const HANDLES = [
+  { id: 'tl',    cls: 'hnd',       cur: 'nwse-resize', kind: 'scale',  ax: 'right'  },
+  { id: 'top',   cls: 'hnd bar-h', cur: 'ns-resize',   kind: 'height'              },
+  { id: 'tr',    cls: 'hnd',       cur: 'nesw-resize', kind: 'scale',  ax: 'left'   },
+  { id: 'right', cls: 'hnd bar-v', cur: 'ew-resize',   kind: 'width'               }
+];
+const hEls = {};
+HANDLES.forEach(h => {
+  const d = document.createElement('div');
+  d.className = h.cls; d.style.cursor = h.cur; d.dataset.id = h.id;
+  d.title = h.kind === 'scale' ? 'Drag to scale the whole stamp'
+          : h.kind === 'width' ? 'Drag to change box width'
+          : 'Drag to change box height';
+  $('handles').appendChild(d); hEls[h.id] = d;
+});
+function placeHandles() {
+  if (!LAST) return;
+  const { boxX, boxY, boxW, boxH, W, H } = LAST;
+  const at = (el, x, y) => { el.style.left = (x / W * 100) + '%';
+                             el.style.top  = (y / H * 100) + '%'; };
+  at(hEls.tl,    boxX,           boxY);
+  at(hEls.top,   boxX + boxW / 2, boxY);
+  at(hEls.tr,    boxX + boxW,     boxY);
+  at(hEls.right, boxX + boxW,     boxY + boxH / 2);
+}
+(() => {
+  let drag = null;
+  const toImg = e => {
+    const r = cv.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (cv.width / r.width),
+             y: (e.clientY - r.top)  * (cv.height / r.height) };
+  };
+  const setSlider = (id, lbl, v, lo, hi) => {
+    const n = Math.max(lo, Math.min(hi, Math.round(v)));
+    $(id).value = n; $(lbl).textContent = n + '%';
+  };
+  // Pointer Events so this works identically with a mouse, a finger or a pen
+  $('handles').addEventListener('pointerdown', e => {
+    const id = e.target.dataset && e.target.dataset.id;
+    if (!id || !LAST) return;
+    e.preventDefault();
+    try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
+    drag = { h: HANDLES.find(x => x.id === id), box: { ...LAST }, pid: e.pointerId,
+             s: (+$('scale').value), w: (+$('boxWpct').value), hgt: (+$('boxHpct').value) };
+  });
+  window.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const p = toImg(e), b = drag.box;
+    if (drag.h.kind === 'height') {
+      const nat = b.boxH / (drag.hgt / 100);          // height at 100%
+      setSlider('boxHpct', 'vBoxH', (b.boxY + b.boxH - p.y) / nat * 100, 60, 220);
+    } else if (drag.h.kind === 'width') {
+      const full = b.boxW / (drag.w / 100);           // width at 100%
+      setSlider('boxWpct', 'vBoxW', (p.x - b.boxX) / full * 100, 45, 130);
+    } else {
+      // corner: uniform scale, anchored to the opposite bottom corner
+      const ax = drag.h.ax === 'left' ? b.boxX : b.boxX + b.boxW;
+      const ay = b.boxY + b.boxH;
+      const baseW = b.boxW / (drag.s / 100), baseH = b.boxH / (drag.s / 100);
+      const sx = Math.abs(p.x - ax) / baseW, sy = (ay - p.y) / baseH;
+      setSlider('scale', 'vScale', (sx + sy) / 2 * 100, 30, 250);
+    }
+    draw();
+  }, { passive: false });
+  const end = () => { drag = null; };
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+})();
+
+/* ---------- full screen editing ---------- */
+(() => {
+  const stage = $('stage'), tools = $('fsTools'), home = $('tuneHome'), box = $('tuneBox');
+  const isFs = () => document.fullscreenElement || document.webkitFullscreenElement;
+  $('fsBtn').onclick = () => {
+    if (isFs()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else (stage.requestFullscreen || stage.webkitRequestFullscreen || (() => {})).call(stage);
+  };
+  const onChange = () => {
+    const on = !!isFs();
+    tools.hidden = !on;
+    (on ? tools : home).appendChild(box);      // same nodes move, so no state to sync
+    $('fsBtn').textContent = on ? '✕ Exit full screen' : '⛶ Full screen edit';
+    requestAnimationFrame(() => { draw(); placeHandles(); });
+  };
+  document.addEventListener('fullscreenchange', onChange);
+  document.addEventListener('webkitfullscreenchange', onChange);
+})();
+window.addEventListener('resize', () => placeHandles());
+$('resetBox').onclick = () => {
+  [['scale','vScale'],['textPct','vText'],['boxWpct','vBoxW'],['boxHpct','vBoxH']].forEach(([i,l]) => {
+    $(i).value = 100; $(l).textContent = '100%';
+  });
+  draw();
+};
+
+function save(type, ext, q) {
+  cv.toBlob(b => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = 'stamped-' + (($('title').value.split(/\s+/)[0] || 'photo').toLowerCase()) + ext;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, type, q);
+}
+$('dl').onclick    = () => save('image/jpeg', '.jpg', 0.94);
+$('dlPng').onclick = () => save('image/png',  '.png');
+</script>
+</body>
+</html>
