@@ -552,7 +552,11 @@ function osmThumb(lat, lng, z, S) {
     $('osmStatus').textContent = 'Real tiles for these coordinates — needs internet.';
     draw();
   }).catch(err => {
-    osmBusy = '';
+    // Remember that THIS exact request failed, with a null canvas. Without it the
+    // redraw below re-entered here, failed again and redrew — an endless loop that
+    // froze the tab, which is what selecting Google with no key used to do. Changing
+    // the key, style, zoom or coordinates changes the cache key and retries properly.
+    osmBusy = ''; osmCanvas = null; osmKey = key;
     $('osmStatus').textContent = style === 'google'
       ? ((($('gkey').value || '').trim() || DEFAULT_GKEY)
           ? 'Google rejected that key. Check Maps Static API is enabled, and that the '
